@@ -192,10 +192,10 @@ binds {
     XF86AudioLowerVolume { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-"; }
     XF86AudioMute        { spawn "wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle"; }
 
-    // 多媒体播放 / 暂停 / 切歌 (鼠标按键与键盘多媒体键，带 300ms 冷却防抖)
-    XF86AudioPlay repeat=false cooldown-ms=300 { spawn "noctalia" "msg" "media" "toggle"; }
-    XF86AudioNext repeat=false cooldown-ms=300 { spawn "noctalia" "msg" "media" "next"; }
-    XF86AudioPrev repeat=false cooldown-ms=300 { spawn "noctalia" "msg" "media" "previous"; }
+    // 多媒体播放 / 暂停 / 切歌 (鼠标按键与键盘多媒体键，智能规避 QQ 音乐 PlayPause Bug)
+    XF86AudioPlay repeat=false cooldown-ms=300 { spawn "~/.config/niri/scripts/media-control.sh" "toggle"; }
+    XF86AudioNext repeat=false cooldown-ms=300 { spawn "~/.config/niri/scripts/media-control.sh" "next"; }
+    XF86AudioPrev repeat=false cooldown-ms=300 { spawn "~/.config/niri/scripts/media-control.sh" "previous"; }
 
     // 亮度：内屏走 Noctalia 背光+OSD，外接屏保留 ddcutil（Noctalia 默认关闭 DDC 扫描）
     XF86MonBrightnessUp   allow-when-locked=true { spawn "~/.config/niri/scripts/niri-brightness.sh" "up"; }
