@@ -10,6 +10,9 @@
 # alias ll='ls -alF'
 # set -gx EDITOR nvim
 
+# pnpm global commands, including pi and pi-web.
+fish_add_path -g -m "$HOME/.local/share/pnpm/bin"
+
 # Automatically source all *.fish scripts inside __custom__/ directories if present
 # 自动载入 conf.d/__custom__/ 与 ~/.config/fish/__custom__/ 目录下的所有 *.fish 脚本
 set -l custom_dirs (status dirname)/__custom__ ~/.config/fish/__custom__

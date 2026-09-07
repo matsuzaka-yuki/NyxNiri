@@ -13,3 +13,8 @@
 //     match app-id="my-custom-app"
 //     open-floating true
 // }
+
+// 个人快捷键（NyxNiri 更新时保留）
+binds {
+    Ctrl+Q { spawn "mark-shot"; }
+}

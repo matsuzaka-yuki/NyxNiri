@@ -111,12 +111,29 @@ def _update_ini_file(file_path: Path, section: str, key: str, val: str) -> None:
             content += f"\n[{section}]\n{key}={val}\n"
     file_path.write_text(content, encoding="utf-8")
 
+def _update_top_level_ini_file(file_path: Path, key: str, val: str) -> None:
+    """Update an Fcitx addon setting that lives outside an INI section."""
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    content = file_path.read_text(encoding="utf-8", errors="replace") if file_path.is_file() else ""
+
+    # Earlier NyxNiri releases wrote an invalid [ClassicUI] wrapper. Remove it
+    # while preserving the settings that were stored inside it.
+    content = re.sub(r"^\[ClassicUI\]\s*\n?", "", content, flags=re.MULTILINE)
+    if re.search(rf"^{re.escape(key)}=", content, re.MULTILINE):
+        content = re.sub(rf"^{re.escape(key)}=.*", f"{key}={val}", content, flags=re.MULTILINE)
+    else:
+        content = content.rstrip() + ("\n" if content.rstrip() else "") + f"{key}={val}\n"
+    file_path.write_text(content, encoding="utf-8")
+
 def fcitx_set_theme_conf() -> None:
-    """Update Theme & DarkTheme in classicui.conf."""
+    """Update NyxMellow theme and readable candidate font in classicui.conf."""
     _, _, _, classicui, _, _, _, _ = _fcitx_paths()
     fcitx_backup_theme_settings()
-    _update_ini_file(classicui, "ClassicUI", "Theme", FCITX_THEME)
-    _update_ini_file(classicui, "ClassicUI", "DarkTheme", FCITX_THEME)
+    _update_top_level_ini_file(classicui, "Theme", FCITX_THEME)
+    _update_top_level_ini_file(classicui, "DarkTheme", FCITX_THEME)
+    # Keep candidate text at the normal desktop size.  This is written by the
+    # NyxNiri activation path so a later redeploy cannot reset it unexpectedly.
+    _update_top_level_ini_file(classicui, "Font", '"Noto Sans CJK SC 14"')
     print(msg("fcitx_theme_set", str(classicui)))
 
 def fcitx_configure_quickphrase() -> None:
@@ -162,13 +179,21 @@ def fcitx_backup_quickphrase() -> None:
     )
 
 def fcitx_restart() -> None:
-    """Start fcitx5, replacing the running daemon when necessary."""
+    """Reload the live daemon, or start it if it is not running."""
     if fcitx5_installed():
         res = timed_run(["pgrep", "-x", "fcitx5"], 5, capture_output=True, check=False)
         if res is not None and res.returncode == 0:
-            timed_run(["pkill", "-x", "fcitx5"], 5, check=False)
-            time.sleep(1)
-        subprocess.Popen(["fcitx5", "-d"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Keep the daemon's Wayland connection alive; a cold restart from a
+            # template hook can lose the compositor session environment.
+            timed_run(["fcitx5-remote", "-r"], 5, check=False)
+            timed_run(
+                ["busctl", "--user", "call", "org.fcitx.Fcitx5", "/controller",
+                 "org.fcitx.Fcitx.Controller1", "ReloadAddonConfig", "s", "classicui"],
+                5,
+                check=False,
+            )
+        else:
+            subprocess.Popen(["fcitx5", "-d"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(msg("fcitx_restarted"))
 
 def fcitx_configure_trigger_key() -> bool:
@@ -301,7 +326,7 @@ output_path = "{home}/.local/share/fcitx5/themes/{FCITX_THEME}/panel.svg"
 index = 2
 input_path = "{home}/.local/share/fcitx5/themes/{FCITX_THEME}/templates/highlight.svg"
 output_path = "{home}/.local/share/fcitx5/themes/{FCITX_THEME}/highlight.svg"
-post_hook = "if pgrep -x fcitx5 >/dev/null 2>&1; then pkill -x fcitx5; sleep 1; fcitx5 -d >/dev/null 2>&1 & fi"
+post_hook = "if pgrep -x fcitx5 >/dev/null 2>&1; then busctl --user call org.fcitx.Fcitx5 /controller org.fcitx.Fcitx.Controller1 ReloadAddonConfig s classicui >/dev/null 2>&1; fi"
 """
         new_content = "\n".join(clean_lines).rstrip() + "\n" + template_block
         noctalia_conf.write_text(new_content, encoding="utf-8")

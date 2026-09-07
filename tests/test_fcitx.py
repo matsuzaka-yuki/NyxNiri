@@ -97,6 +97,32 @@ class TestFcitxStartup(unittest.TestCase):
             ["fcitx5", "-d"], stdout=-3, stderr=-3,
         )
 
+    def test_restart_reloads_live_daemon_without_killing_it(self):
+        from nyxniri.modules.fcitx import fcitx_restart
+
+        with patch("nyxniri.modules.fcitx.fcitx5_installed", return_value=True), \
+             patch("nyxniri.modules.fcitx.timed_run", return_value=SimpleNamespace(returncode=0)) as run, \
+             patch("nyxniri.modules.fcitx.subprocess.Popen") as popen:
+            fcitx_restart()
+
+        self.assertEqual(run.call_args_list[0].args[0], ["pgrep", "-x", "fcitx5"])
+        self.assertIn(["fcitx5-remote", "-r"], [call.args[0] for call in run.call_args_list])
+        self.assertFalse(popen.called)
+
+    def test_theme_settings_are_top_level_fcitx_options(self):
+        from nyxniri.modules.fcitx import fcitx_set_theme_conf
+
+        classicui = self.env.config_dir / "fcitx5" / "conf" / "classicui.conf"
+        classicui.parent.mkdir(parents=True, exist_ok=True)
+        classicui.write_text("[ClassicUI]\nTheme=default\nDarkTheme=default-dark\n", encoding="utf-8")
+
+        fcitx_set_theme_conf()
+
+        content = classicui.read_text(encoding="utf-8")
+        self.assertNotIn("[ClassicUI]", content)
+        self.assertIn("Theme=nyxmellow", content)
+        self.assertIn("DarkTheme=nyxmellow", content)
+
 
 if __name__ == "__main__":
     unittest.main()
