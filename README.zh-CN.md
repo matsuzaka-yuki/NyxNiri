@@ -103,12 +103,31 @@ NyxNiri
 
 > [!NOTE]
 > 配置采用原子部署。个人改动通过 Dunder 协议保留：
-> - `*__custom__*` 文件（如 `01__custom__.kdl`）和目录自动保留——数字前缀控制加载顺序。
+> - 任何含 `__custom__` 的文件（如 `__custom__.kdl`、`__custom__.conf`）与目录在更新时自动保留。
 > - `~/.config/niri/monitor.kdl` 在部署时保留。
+
+<details>
+<summary><b>如何自定义你的配置 (Dunder 协议速查)</b></summary>
+
+任何文件名或目录名只要包含 `__custom__`，跨版本更新或切换预设都不会被覆盖：
+
+- **各应用按各自方式加载**：主配置末尾通常预置了挂载入口（例如 Niri 的 `__custom__.kdl`、Kitty 的 `__custom__.conf`），Fish 则自动扫描加载 `conf.d/` 下的脚本。
+- **自由拆分与引入**：想要拆分配置，直接在主自定义文件中二次引入即可（例如在 `__custom__.kdl` 中写 `include "my_rules__custom__.kdl"`，所有带 `__custom__` 的子文件同样受到完整保护）。
+- **专属保留文件**：像 `~/.config/niri/monitor.kdl` 这类按名引用的文件由系统自动守护，直接编辑即可。
+
+</details>
 
 ## 预设
 
-有些应用自带多套风味——`kitty` 默认就带一个 `transparent` 透明预设。预设叠在默认配置和你的 `__custom__` 之间，切换不会碰你的自定义改动。
+有些应用自带多套风味——预设叠在默认配置和你的 `__custom__` 之间，切换不会碰你的自定义改动。
+
+内置官方预设：
+- **`kitty`**：
+  - `default`：标准 90% 不透明度
+  - `transparent`：75% 半透明高透风味
+- **`niri`**：
+  - `default`：极致极简无边框（默认）
+  - `glow`：启用 2px 轮廓与 28px 柔和弥散光晕（解决多窗口平铺下的焦点识别问题）
 
 | 指令 | 作用 |
 | :--- | :--- |
@@ -264,6 +283,17 @@ NyxNiri
 [brightness]
 enable_ddcutil = false
 ```
+
+亮度键仍然可用：笔记本内屏走 Noctalia 背光，外接显示器继续用 `ddcutil`。除非你希望由 Noctalia 自己管 DDC，否则保持关闭。
+
+</details>
+
+<details>
+<summary><b>浏览器视频叠画、黑块或整窗变透明</b> — 核显 + NVIDIA 独显的机器曾被强制走 NVIDIA 视频驱动。</summary>
+
+旧版只要 `lspci` 里出现 NVIDIA，就会打开 `GBM_BACKEND=nvidia-drm` 和 `LIBVA_DRIVER_NAME=nvidia`。混合显卡笔记本的桌面仍在核显上合成，Chromium/Brave 却可能在独显硬解，再交回核显显示——少数视频就会把窗口画花。
+
+更新并重新部署 NyxNiri。现在只有 NVIDIA 真正负责显示时才会打开这些变量。若你就是要用 NVIDIA 当合成器，在 `~/.config/niri/__custom__.kdl` 里自行解开即可。
 
 </details>
 

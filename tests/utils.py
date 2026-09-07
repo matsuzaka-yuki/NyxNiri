@@ -40,6 +40,8 @@ class TempEnv:
             self._old_env[key] = os.environ.get(key)
         os.environ["HOME"] = str(home)
         os.environ["XDG_STATE_HOME"] = str(home / ".local" / "state")
+        os.environ["XDG_CONFIG_HOME"] = str(home / ".config")
+        os.environ["XDG_CACHE_HOME"] = str(home / ".cache")
 
         # Reset cached Environment so next get_env() picks up new HOME
         core._ENV = None
@@ -53,7 +55,7 @@ class TempEnv:
         import nyxniri.deps as _deps
         import nyxniri.modules.greeter as _greeter
         _deploy_core._CONFIG_ITEMS_CACHE = []
-        _deploy_hw._IS_NVIDIA = None
+        _deploy_hw._NVIDIA_ROLE = None
         _deploy_manifest._MANIFEST_CACHE = None
         _deps._AUR_HELPER_CACHE = None
         _deps._PACMAN_INSTALLED_CACHE = None

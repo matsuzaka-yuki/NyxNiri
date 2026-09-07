@@ -103,12 +103,31 @@ NyxNiri
 
 > [!NOTE]
 > Configs deploy atomically. Personal tweaks survive updates via the Dunder protocol:
-> - `*__custom__*` files (e.g. `01__custom__.kdl`) and folders are preserved — number prefixes control load order.
+> - Any file (e.g. `__custom__.kdl`, `__custom__.conf`) or folder containing `__custom__` is preserved.
 > - `~/.config/niri/monitor.kdl` is kept across deployments.
+
+<details>
+<summary><b>How to customize (Dunder Protocol)</b></summary>
+
+Any file or folder containing `__custom__` survives updates and preset switches:
+
+- **Loaded per-app**: each app uses its native include mechanism — Niri includes `__custom__.kdl`, Kitty includes `__custom__.conf`, while Fish autoloads files under `conf.d/`.
+- **Modular & composable**: to split tweaks across multiple files, simply include them from your main custom file (e.g. put `include "my_rules__custom__.kdl"` inside `__custom__.kdl` — all files containing `__custom__` remain preserved).
+- **Dedicated files**: files referenced by name like `~/.config/niri/monitor.kdl` are preserved automatically; edit them directly.
+
+</details>
 
 ## Presets
 
-Some apps ship flavor variants — `kitty` comes with a `transparent` preset out of the box. Presets layer between defaults and your `__custom__` files, so switching never touches your own tweaks.
+Some apps ship flavor variants — presets layer between defaults and your `__custom__` files, so switching never touches your own tweaks.
+
+Built-in official presets:
+- **`kitty`**:
+  - `default`: standard 90% opacity
+  - `transparent`: 75% higher translucency flavor
+- **`niri`**:
+  - `default`: minimalist frameless look (default)
+  - `glow`: enables 2px outline and 28px soft diffused ambient glow (improves focus visibility across tiled windows)
 
 | Command | Description |
 | :--- | :--- |
@@ -264,6 +283,17 @@ Disable `ddcutil` in `~/.config/noctalia/noctalia-config.toml`:
 [brightness]
 enable_ddcutil = false
 ```
+
+Brightness keys still work: internal panels go through Noctalia backlight, external monitors keep the `ddcutil` fallback. Leave this setting off unless you want Noctalia itself to own DDC.
+
+</details>
+
+<details>
+<summary><b>Browser video looks stacked, black, or see-through</b> — hybrid GPU (AMD/Intel iGPU + NVIDIA dGPU) used to force NVIDIA video decode for every app.</summary>
+
+NyxNiri used to uncomment `GBM_BACKEND=nvidia-drm` and `LIBVA_DRIVER_NAME=nvidia` whenever `lspci` mentioned NVIDIA. On hybrid laptops the compositor stays on the iGPU, so Chromium/Brave can decode on NVIDIA and present on AMD/Intel — a few videos then corrupt the window.
+
+Update and redeploy NyxNiri. Those env vars now stay off unless NVIDIA is actually the display GPU. If you *want* NVIDIA as the compositor GPU, uncomment them in `~/.config/niri/__custom__.kdl`.
 
 </details>
 
