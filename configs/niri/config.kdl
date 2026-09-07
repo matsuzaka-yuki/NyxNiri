@@ -50,10 +50,11 @@ hotkey-overlay {
 }
 
 prefer-no-csd
-screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+screenshot-path "~/图片/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
 
 debug {
     honor-xdg-activation-with-invalid-serial
+    render-drm-device "/dev/dri/by-path/pci-0000:02:00.0-render"
 }
 
 recent-windows {

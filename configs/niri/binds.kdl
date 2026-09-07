@@ -27,6 +27,11 @@ binds {
     // 显示快捷键提示覆盖层 / Show interactive hotkey overlay
     Mod+Slash { show-hotkey-overlay; }
 
+    // 屏幕与鼠标焦点切换 (配合 warp-mouse-to-focus，鼠标光标瞬间吸附到目标屏幕窗口)
+    Mod+Escape  { focus-monitor "DP-1"; }        // 一键切回主屏幕
+    Mod+O       { focus-monitor-next; }          // Mod + O 在主屏与 KVM 之间轮换切换
+    Mod+Shift+O { focus-monitor "HDMI-A-1"; }    // 一键切到 KVM 屏幕
+
     // -------------------------------------------------------------------------
     // 2. 应用启动与 Noctalia 组件 / App Launchers & Noctalia Panels
     // -------------------------------------------------------------------------
@@ -186,6 +191,12 @@ binds {
     XF86AudioRaiseVolume { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%+"; }
     XF86AudioLowerVolume { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-"; }
     XF86AudioMute        { spawn "wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle"; }
+
+    // 多媒体播放 / 暂停 / 切歌 (鼠标按键与键盘多媒体键)
+    XF86AudioPlay repeat=false { spawn "noctalia" "msg" "media" "toggle"; }
+    XF86AudioPause repeat=false { spawn "noctalia" "msg" "media" "toggle"; }
+    XF86AudioNext repeat=false { spawn "noctalia" "msg" "media" "next"; }
+    XF86AudioPrev repeat=false { spawn "noctalia" "msg" "media" "previous"; }
 
     // 亮度：内屏走 Noctalia 背光+OSD，外接屏保留 ddcutil（Noctalia 默认关闭 DDC 扫描）
     XF86MonBrightnessUp   allow-when-locked=true { spawn "~/.config/niri/scripts/niri-brightness.sh" "up"; }
