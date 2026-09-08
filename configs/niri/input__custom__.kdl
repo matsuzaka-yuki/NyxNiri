@@ -5,8 +5,22 @@ gestures {
 }
 
 input {
+    warp-mouse-to-focus
+
+    // 将 KVM (GL.iNet Composite Device) 的绝对定位/触控输入精确映射到 HDMI-A-1
+    // 防止在教室远程控制时，绝对坐标跨两屏拉伸导致点击位置错位
+    tablet {
+        map-to-output "HDMI-A-1"
+    }
+    touch {
+        map-to-output "HDMI-A-1"
+    }
+
     keyboard {
-        xkb
+        xkb {
+            // 将 CapsLock 键映射为一个额外的 Super 键 (完美解决平板等无 Win 键设备的远程控制)
+            options "caps:super"
+        }
 
         numlock
     }
@@ -17,7 +31,7 @@ input {
         dwtp // 打字时也禁用触摸板指针移动
     }
     mouse {
-        accel-speed -0.72
+        accel-speed 0.0
     }
     trackpoint
 }
