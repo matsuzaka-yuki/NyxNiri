@@ -27,11 +27,7 @@ binds {
     // 显示快捷键提示覆盖层 / Show interactive hotkey overlay
     Mod+Slash { show-hotkey-overlay; }
 
-    // 屏幕与鼠标焦点切换 (配合 warp-mouse-to-focus，鼠标光标瞬间吸附到目标屏幕窗口)
-    Mod+Escape  { focus-monitor "DP-1"; }        // 一键切回主屏幕
-    Mod+O       { focus-monitor-next; }          // Mod + O 在主屏与 KVM 之间轮换切换
-    Mod+Shift+O { focus-monitor "HDMI-A-1"; }    // 一键切到 KVM 屏幕
-
+    // 台式机的双屏切换快捷键（DP-1 / HDMI-A-1）已移除，本机显示器不同。
     // -------------------------------------------------------------------------
     // 2. 应用启动与 Noctalia 组件 / App Launchers & Noctalia Panels
     // -------------------------------------------------------------------------

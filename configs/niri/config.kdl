@@ -54,7 +54,8 @@ screenshot-path "~/图片/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
 
 debug {
     honor-xdg-activation-with-invalid-serial
-    render-drm-device "/dev/dri/by-path/pci-0000:02:00.0-render"
+    // 台式机的独显渲染节点已移除（本机为 Intel 核显 + NVIDIA 混合输出），
+    // 交给 niri 自动选择渲染设备。
 }
 
 recent-windows {
