@@ -9,6 +9,7 @@ stays here until hardware variants exceed ~3 (then overlay presets; §11).
 import os
 import re
 import subprocess
+from pathlib import Path
 from typing import Optional
 
 from nyxniri.constants import MAIN_WM
@@ -59,6 +60,40 @@ def _classify_nvidia_role(lspci_text: str) -> str:
     return "none"
 
 
+# DRM drivers that mean "NVIDIA" on the kernel side. "nouveau" is the
+# reverse-engineered driver; both count as an NVIDIA display owner.
+_NVIDIA_DRM_DRIVERS = frozenset({"nvidia", "nouveau"})
+
+
+def _drm_connected_drivers(drm_root: Optional[Path] = None) -> set:
+    """Kernel drivers owning at least one connected DRM connector.
+
+    Authoritative for "which GPU actually drives a display": the lspci device
+    class cannot tell a hybrid laptop's offload dGPU (reported as a VGA
+    controller but wired to no lit output) from a desktop's primary NVIDIA
+    card. Returns an empty set when sysfs gives no answer (container, mocked
+    tests), so the caller falls back to the lspci heuristic.
+    """
+    root = drm_root if drm_root is not None else Path("/sys/class/drm")
+    if not root.is_dir():
+        return set()
+    drivers = set()
+    for card in root.glob("card[0-9]"):
+        driver_link = card / "device" / "driver"
+        # lexists: a sysfs driver link is a symlink; a test fixture may point at
+        # a not-yet-present /sys/bus/pci/drivers/<name> and must still count.
+        if not os.path.lexists(driver_link):
+            continue
+        for conn in root.glob(f"{card.name}-*"):
+            try:
+                if (conn / "status").read_text(encoding="utf-8").strip() != "connected":
+                    continue
+                drivers.add(os.path.basename(os.readlink(driver_link)))
+            except OSError:
+                continue
+    return drivers
+
+
 def _nvidia_role() -> str:
     global _NVIDIA_ROLE
     if _NVIDIA_ROLE is not None:
@@ -71,9 +106,24 @@ def _nvidia_role() -> str:
             check=False,
             env={**os.environ, "LC_ALL": "C"},
         )
-        _NVIDIA_ROLE = _classify_nvidia_role(res.stdout)
+        lspci_role = _classify_nvidia_role(res.stdout)
     except Exception:
-        _NVIDIA_ROLE = "none"
+        lspci_role = "none"
+
+    # sysfs wins when it has a verdict: it reflects the connector that is
+    # actually lit, not just which PCI class the dGPU claims.
+    drivers = _drm_connected_drivers()
+    if drivers:
+        if drivers & _NVIDIA_DRM_DRIVERS:
+            _NVIDIA_ROLE = "primary"
+        elif lspci_role == "none":
+            _NVIDIA_ROLE = "none"
+        else:
+            # A non-NVIDIA GPU drives every connected output, so any NVIDIA
+            # card is an offload renderer → keep NVIDIA envs off.
+            _NVIDIA_ROLE = "hybrid"
+    else:
+        _NVIDIA_ROLE = lspci_role
     return _NVIDIA_ROLE
 
 

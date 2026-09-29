@@ -3,6 +3,7 @@
 Safety: TempEnv only. lspci is always mocked — never read the host GPU.
 """
 
+import os
 import re
 import subprocess
 import unittest
@@ -12,6 +13,7 @@ from unittest.mock import patch
 from nyxniri.deploy.hardware import (
     _apply_nvidia_env,
     _classify_nvidia_role,
+    _drm_connected_drivers,
     _nvidia_role,
     _phase_hardware_patches,
 )
@@ -172,7 +174,8 @@ class TestLspciCommandShape(unittest.TestCase):
             calls.append((list(argv), kwargs))
             return subprocess.CompletedProcess(argv, 0, stdout=LSPCI_HYBRID_AMD, stderr="")
 
-        with patch("nyxniri.deploy.hardware.subprocess.run", side_effect=fake_run):
+        with patch("nyxniri.deploy.hardware.subprocess.run", side_effect=fake_run), \
+                patch("nyxniri.deploy.hardware._drm_connected_drivers", return_value=set()):
             self.assertEqual(_nvidia_role(), "hybrid")
             self.assertEqual(_nvidia_role(), "hybrid")
 
@@ -185,8 +188,41 @@ class TestLspciCommandShape(unittest.TestCase):
         self.assertEqual(kwargs["env"]["LC_ALL"], "C")
 
     def test_lspci_failure_is_none(self):
-        with patch("nyxniri.deploy.hardware.subprocess.run", side_effect=OSError("no lspci")):
+        with patch("nyxniri.deploy.hardware.subprocess.run", side_effect=OSError("no lspci")), \
+                patch("nyxniri.deploy.hardware._drm_connected_drivers", return_value=set()):
             self.assertEqual(_nvidia_role(), "none")
+
+
+class TestDrmConnectedDrivers(unittest.TestCase):
+    """sysfs parser: only lit connectors decide which driver owns the display."""
+
+    def setUp(self):
+        self._ctx = TempEnv()
+        self._ctx.__enter__()
+        self.root = self._ctx.home / "drm"
+
+    def tearDown(self):
+        self._ctx.__exit__()
+
+    def _card(self, name: str, driver: str, status: str) -> None:
+        card = self.root / f"card{name}"
+        (card / "device").mkdir(parents=True, exist_ok=True)
+        (card / "device" / "driver").symlink_to(f"/sys/bus/pci/drivers/{driver}")
+        conn = self.root / f"card{name}-eDP-1"
+        conn.mkdir(parents=True, exist_ok=True)
+        (conn / "status").write_text(status + "\n", encoding="utf-8")
+
+    def test_only_connected_drivers_reported(self):
+        self._card("0", "nvidia", "disconnected")
+        self._card("1", "i915", "connected")
+        self.assertEqual(_drm_connected_drivers(self.root), {"i915"})
+
+    def test_nvidia_connected_is_reported(self):
+        self._card("0", "nvidia", "connected")
+        self.assertEqual(_drm_connected_drivers(self.root), {"nvidia"})
+
+    def test_missing_root_is_empty(self):
+        self.assertEqual(_drm_connected_drivers(self.root / "absent"), set())
 
 
 class TestPhaseHardwarePatches(unittest.TestCase):
@@ -203,11 +239,15 @@ class TestPhaseHardwarePatches(unittest.TestCase):
         self.niri_conf.write_text(content, encoding="utf-8")
         return self.niri_conf
 
-    def _run(self, lspci_text: str) -> str:
+    def _run(self, lspci_text: str, connected_drivers=None) -> str:
         def fake_run(argv, **kwargs):
             return subprocess.CompletedProcess(argv, 0, stdout=lspci_text, stderr="")
 
-        with patch("nyxniri.deploy.hardware.subprocess.run", side_effect=fake_run):
+        # Inconclusive sysfs by default, so these cases exercise the lspci
+        # heuristic; pass connected_drivers={"i915"} to exercise the sysfs path.
+        drivers = set() if connected_drivers is None else set(connected_drivers)
+        with patch("nyxniri.deploy.hardware.subprocess.run", side_effect=fake_run), \
+                patch("nyxniri.deploy.hardware._drm_connected_drivers", return_value=drivers):
             _phase_hardware_patches()
         return self.niri_conf.read_text(encoding="utf-8")
 
@@ -229,6 +269,20 @@ class TestPhaseHardwarePatches(unittest.TestCase):
         out = self._run(LSPCI_HYBRID_AMD)
         self.assertTrue(_env_commented(out))
         self.assertFalse(_env_enabled(out))
+
+    def test_sysfs_igpu_display_overrides_dual_vga(self):
+        """Both GPUs reported as VGA, but only the iGPU has a lit output."""
+        self._write(COMMENTED)
+        out = self._run(LSPCI_DUAL_VGA, connected_drivers={"i915"})
+        self.assertTrue(_env_commented(out))
+        self.assertFalse(_env_enabled(out))
+
+    def test_sysfs_nvidia_display_uncomments(self):
+        """A lit connector on the NVIDIA card means it is the display GPU."""
+        self._write(COMMENTED)
+        out = self._run(LSPCI_HYBRID_INTEL, connected_drivers={"nvidia"})
+        self.assertTrue(_env_enabled(out))
+        self.assertFalse(_env_commented(out))
 
     def test_none_recomments_old_deploy(self):
         self._write(ENABLED)
